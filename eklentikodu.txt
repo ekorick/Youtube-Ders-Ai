@@ -1,0 +1,230 @@
+package com.efkwnlabs.aieklenti;
+
+import android.app.Activity;
+import android.content.Context;
+import android.content.ClipboardManager;
+import android.content.ClipData;
+import android.app.AlertDialog;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.os.AsyncTask;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import android.widget.Toast;
+import com.google.appinventor.components.annotations.*;
+import com.google.appinventor.components.common.ComponentCategory;
+import com.google.appinventor.components.runtime.*;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
+@DesignerComponent(
+        version = 10,
+        description = "EkoAI Global - English Default UI, Rules and Identity.",
+        category = ComponentCategory.EXTENSION,
+        nonVisible = true)
+@SimpleObject(external = true)
+@UsesPermissions(permissionNames = "android.permission.INTERNET")
+public class Aieklenti extends AndroidNonvisibleComponent {
+
+    private Context context;
+    private Activity activity;
+    private LinearLayout chatContainer;
+    private ScrollView parentScrollView;
+    private final String API_KEY = "APİ KEYİNİZİ GİRİN !";
+
+    public Aieklenti(ComponentContainer container){
+        super(container.$form());
+        this.activity = (Activity) container.$context();
+        this.context = container.$context();
+    }
+
+    @SimpleFunction(description = "Initializes the global chat interface.")
+    public void InitializeChat(AndroidViewComponent layout) {
+        View view = layout.getView();
+        if (view instanceof ViewGroup) {
+            ViewGroup target = (ViewGroup) view;
+            target.removeAllViews();
+            target.setBackgroundColor(Color.TRANSPARENT);
+
+            LinearLayout mainLayout = new LinearLayout(context);
+            mainLayout.setOrientation(LinearLayout.VERTICAL);
+
+            // --- GLOBAL TITLE BAR ---
+            RelativeLayout titleBar = new RelativeLayout(context);
+            titleBar.setPadding(20, 35, 20, 35);
+            titleBar.setBackgroundColor(Color.parseColor("#1F2C34"));
+
+            TextView title = new TextView(context);
+            title.setText("EkoAI");
+            title.setTextColor(Color.WHITE);
+            title.setTextSize(20);
+            title.setTypeface(null, Typeface.BOLD);
+            RelativeLayout.LayoutParams titleParams = new RelativeLayout.LayoutParams(-2, -2);
+            titleParams.addRule(RelativeLayout.CENTER_IN_PARENT);
+            titleBar.addView(title, titleParams);
+
+            TextView infoBtn = new TextView(context);
+            infoBtn.setText("?");
+            infoBtn.setTextColor(Color.WHITE);
+            infoBtn.setTextSize(22);
+            infoBtn.setTypeface(null, Typeface.BOLD);
+            infoBtn.setPadding(25, 0, 25, 0);
+            RelativeLayout.LayoutParams btnParams = new RelativeLayout.LayoutParams(-2, -2);
+            btnParams.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
+            
+            infoBtn.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    ShowAppRules();
+                }
+            });
+            titleBar.addView(infoBtn, btnParams);
+
+            mainLayout.addView(titleBar);
+
+            parentScrollView = new ScrollView(context);
+            chatContainer = new LinearLayout(context);
+            chatContainer.setOrientation(LinearLayout.VERTICAL);
+            chatContainer.setPadding(25, 20, 25, 20);
+            parentScrollView.addView(chatContainer);
+            mainLayout.addView(parentScrollView);
+
+            target.addView(mainLayout);
+
+            // English Greet
+            addBubbleUI("Hello! I am EkoAI, your assistant from Efkwn Labs. How can I help you today?", false);
+        }
+    }
+
+    private void ShowAppRules() {
+        AlertDialog.Builder b = new AlertDialog.Builder(context);
+        b.setTitle("Information & Guidelines");
+        b.setMessage("• Powered by: Llama 3.3 (Meta & Groq)\n" +
+                     "• EkoAI is an official Efkwn Labs assistant.\n" +
+                     "• Free usage limits may apply (rate limits).\n" +
+                     "• Avoid sharing sensitive personal data.\n" +
+                     "• Ads support our server costs.\n\n" +
+                     "Enjoy your chat!");
+        b.setPositiveButton("Got it", null);
+        b.show();
+    }
+
+    @SimpleFunction
+    public void SendMessage(final String userMessage) {
+        if (chatContainer == null || userMessage == null || userMessage.trim().isEmpty()) return;
+        addBubbleUI(userMessage, true);
+        new GroqTask().execute(userMessage);
+    }
+
+    private void addBubbleUI(final String message, final boolean isUser) {
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                LinearLayout wrapper = new LinearLayout(context);
+                wrapper.setOrientation(LinearLayout.HORIZONTAL);
+                wrapper.setPadding(0, 15, 0, 15);
+                
+                final TextView tv = new TextView(context);
+                tv.setText(message);
+                tv.setTextSize(15);
+                tv.setPadding(40, 25, 40, 25);
+                tv.setMaxWidth(720);
+                tv.setTextColor(Color.WHITE);
+
+                tv.setOnLongClickListener(new View.OnLongClickListener() {
+                    @Override
+                    public boolean onLongClick(View v) {
+                        ClipboardManager cp = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+                        cp.setPrimaryClip(ClipData.newPlainText("EkoAI", tv.getText().toString()));
+                        Toast.makeText(context, "Copied to clipboard!", Toast.LENGTH_SHORT).show();
+                        return true;
+                    }
+                });
+
+                GradientDrawable shape = new GradientDrawable();
+                shape.setCornerRadius(45);
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, -2);
+
+                if (isUser) {
+                    wrapper.setGravity(Gravity.RIGHT);
+                    shape.setColor(Color.parseColor("#005C4B"));
+                    params.setMargins(110, 0, 0, 0);
+                } else {
+                    wrapper.setGravity(Gravity.LEFT);
+                    shape.setColor(Color.parseColor("#202C33"));
+                    params.setMargins(0, 0, 110, 0);
+                }
+
+                tv.setBackground(shape);
+                wrapper.addView(tv, params);
+                chatContainer.addView(wrapper);
+                
+                parentScrollView.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        parentScrollView.fullScroll(View.FOCUS_DOWN);
+                    }
+                });
+            }
+        });
+    }
+
+    private class GroqTask extends AsyncTask<String, Void, String> {
+        @Override
+        protected String doInBackground(String... params) {
+            try {
+                URL url = new URL("https://api.groq.com/openai/v1/chat/completions");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Authorization", "Bearer " + API_KEY);
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setDoOutput(true);
+
+                JSONObject body = new JSONObject();
+                body.put("model", "llama-3.3-70b-versatile");
+                JSONArray msgs = new JSONArray();
+                // System Prompt is now more global
+                msgs.put(new JSONObject().put("role", "system").put("content", "You are EkoAI, a helpful assistant from Efkwn Labs. Answer in the language the user speaks."));
+                msgs.put(new JSONObject().put("role", "user").put("content", params[0]));
+                body.put("messages", msgs);
+
+                OutputStream os = conn.getOutputStream();
+                os.write(body.toString().getBytes("UTF-8"));
+                os.close();
+
+                int code = conn.getResponseCode();
+                InputStream is = (code == 200) ? conn.getInputStream() : conn.getErrorStream();
+                BufferedReader br = new BufferedReader(new InputStreamReader(is));
+                StringBuilder res = new StringBuilder();
+                String line;
+                while ((line = br.readLine()) != null) res.append(line);
+                br.close();
+
+                if (code == 200) {
+                    return new JSONObject(res.toString()).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content");
+                }
+                return "I'm a bit busy right now. Please try again in a few moments.";
+            } catch (Exception e) { return "Connection lost. Check your internet."; }
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            addBubbleUI(result, false);
+            OnResponseReceived(result);
+        }
+    }
+
+    @SimpleEvent public void OnResponseReceived(String response) { EventDispatcher.dispatchEvent(this, "OnResponseReceived", response); }
+}
