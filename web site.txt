@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Diyetisyen</title>
+    <style>
+        :root {
+            --bg-color: #f2f2f7;
+            --header-bg: rgba(255, 255, 255, 0.85);
+            --bubble-user: #34C759; /* Apple Health Yeşili */
+            --bubble-ai: #e5e5ea;
+            --text-user: #ffffff;
+            --text-ai: #000000;
+            --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+            --shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #000000;
+                --header-bg: rgba(28, 28, 30, 0.85);
+                --bubble-ai: #2c2c2e;
+                --text-ai: #ffffff;
+            }
+        }
+
+        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+        body { 
+            margin: 0; padding: 0; 
+            font-family: var(--font-stack); 
+            background-color: var(--bg-color); 
+            height: 100vh; display: flex; flex-direction: column; 
+            overflow: hidden;
+        }
+
+        /* HEADER */
+        header {
+            height: 90px;
+            display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
+            padding-bottom: 15px;
+            background: var(--header-bg);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border-bottom: 0.5px solid rgba(128,128,128,0.2);
+            z-index: 100; flex-shrink: 0;
+        }
+        .app-title { font-size: 18px; font-weight: 600; color: var(--text-ai); margin-bottom: 2px; }
+        .status-dot { width: 8px; height: 8px; background: #34C759; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .app-subtitle { font-size: 12px; color: #8e8e93; display: flex; align-items: center; }
+
+        /* CHAT AREA */
+        #chatContainer {
+            flex: 1; overflow-y: auto; padding: 20px;
+            display: flex; flex-direction: column; gap: 15px;
+            scroll-behavior: smooth;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            font-size: 16px;
+            line-height: 1.4;
+            border-radius: 20px;
+            position: relative;
+            animation: popIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            word-wrap: break-word;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            background-color: var(--bubble-user);
+            color: var(--text-user);
+            border-bottom-right-radius: 4px;
+            box-shadow: 0 2px 5px rgba(52, 199, 89, 0.3);
+        }
+
+        .message.ai {
+            align-self: flex-start;
+            background-color: var(--bubble-ai);
+            color: var(--text-ai);
+            border-bottom-left-radius: 4px;
+        }
+
+        /* INPUT AREA */
+        .input-area {
+            background: var(--header-bg);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            padding: 15px 20px 30px 20px;
+            display: flex; gap: 10px; align-items: center;
+            border-top: 0.5px solid rgba(128,128,128,0.2);
+        }
+
+        #userInput {
+            flex: 1;
+            padding: 12px 15px;
+            border-radius: 20px;
+            border: 1px solid rgba(128,128,128,0.2);
+            background: rgba(128,128,128,0.1);
+            font-size: 16px;
+            color: var(--text-ai);
+            transition: all 0.3s;
+        }
+        #userInput:focus { background: rgba(128,128,128,0.15); transform: scale(1.01); }
+
+        .send-btn {
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background: var(--bubble-user);
+            border: none;
+            color: white;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+        .send-btn:active { transform: scale(0.9); }
+        .send-btn svg { width: 20px; height: 20px; fill: currentColor; margin-left: 2px; }
+
+        /* TYPING INDICATOR */
+        .typing {
+            display: none; align-self: flex-start;
+            background: var(--bubble-ai); padding: 12px 16px;
+            border-radius: 20px; border-bottom-left-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .typing.active { display: flex; gap: 4px; }
+        .dot { width: 8px; height: 8px; background: #8e8e93; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
+        .dot:nth-child(1) { animation-delay: -0.32s; }
+        .dot:nth-child(2) { animation-delay: -0.16s; }
+
+        /* ANIMATIONS */
+        @keyframes popIn { 
+            0% { opacity: 0; transform: translateY(20px) scale(0.95); } 
+            100% { opacity: 1; transform: translateY(0) scale(1); } 
+        }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+        /* WELCOME CARD */
+        .welcome-card {
+            background: var(--header-bg);
+            padding: 20px; margin: 20px auto;
+            border-radius: 16px; text-align: center;
+            box-shadow: var(--shadow);
+            max-width: 90%;
+            animation: popIn 0.6s ease;
+        }
+        .welcome-icon { font-size: 40px; margin-bottom: 10px; }
+        .welcome-text { font-size: 15px; color: #8e8e93; line-height: 1.5; }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="app-title">Beslenme Asistanı</div>
+        <div class="app-subtitle"><span class="status-dot"></span>Online</div>
+    </header>
+
+    <div id="chatContainer">
+        <div class="welcome-card">
+            <div class="welcome-icon">🥗</div>
+            <div class="welcome-text">
+                Merhaba! Ben yapay zeka destekli diyet koçun.<br>
+                Yediklerini, kalori sorularını veya yemek planlarını bana sorabilirsin.
+            </div>
+        </div>
+        <div class="message ai">Selam! Bugün neler yedin? 🍏</div>
+    </div>
+
+    <div class="typing" id="typingIndicator">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    </div>
+
+    <div class="input-area">
+        <input type="text" id="userInput" placeholder="Yumurtalı kahvaltı yaptım..." onkeypress="handleEnter(event)">
+        <button class="send-btn" onclick="sendMessage()">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+        </button>
+    </div>
+
+<script>
+    // --- BURAYA DİKKAT: YENİ API KEY'İNİ AŞAĞIYA YAPIŞTIR ---
+    const API_KEY = "BURAYA_YAPİSTİR_KANALA_DA_ABONE_OLMAYI_UNUTMA"; 
+    // Örnek: const API_KEY = "gsk_12345...";
+
+    // GÜNCELLENMİŞ MODEL İSMİ (En yenisi)
+    const MODEL_NAME = "llama-3.3-70b-versatile"; 
+    
+    const API_URL = "https://api.groq.com/openai/v1/chat/completions";
+
+    let conversationHistory = [
+        {
+            role: "system",
+            content: "Sen 'Pocket Dietitian' adında, uzman bir diyetisyensin. Sadece beslenme, kalori ve yemek hakkında konuş. Kısa, net ve emojili cevaplar ver. Türkçe konuş."
+        }
+    ];
+
+    const chatContainer = document.getElementById('chatContainer');
+    const userInput = document.getElementById('userInput');
+    const typingIndicator = document.getElementById('typingIndicator');
+
+    // Enter tuşuna basınca çalışacak fonksiyon
+    function handleEnter(e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    }
+
+    async function sendMessage() {
+        const text = userInput.value.trim();
+        if (!text) return;
+
+        // Kullanıcı mesajını ekrana bas
+        addMessage(text, 'user');
+        userInput.value = '';
+        
+        conversationHistory.push({ role: "user", content: text });
+
+        // Yükleniyor animasyonunu aç
+        showTyping(true);
+        scrollToBottom();
+
+        try {
+            const response = await fetch(API_URL, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${API_KEY.trim()}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    messages: conversationHistory,
+                    model: MODEL_NAME,
+                    temperature: 0.5,
+                    max_tokens: 256
+                })
+            });
+
+            const data = await response.json();
+
+            // API Hatası varsa yakala
+            if (!response.ok) {
+                showTyping(false);
+                const errorMsg = data.error ? data.error.message : "Bilinmeyen Hata";
+                alert("API HATASI: " + errorMsg);
+                conversationHistory.pop(); // Hatalı mesajı geçmişten sil
+                return;
+            }
+
+            // Başarılı cevap
+            if (data.choices && data.choices.length > 0) {
+                const aiReply = data.choices[0].message.content;
+                showTyping(false);
+                addMessage(aiReply, 'ai');
+                conversationHistory.push({ role: "assistant", content: aiReply });
+            }
+
+        } catch (error) {
+            console.error("Bağlantı Hatası:", error);
+            showTyping(false);
+            alert("Bir hata oluştu: " + error);
+        }
+
+        scrollToBottom();
+    }
+
+    function addMessage(text, sender) {
+        const div = document.createElement('div');
+        div.className = `message ${sender}`;
+        let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+        div.innerHTML = formattedText;
+        chatContainer.appendChild(div);
+    }
+
+    function showTyping(show) {
+        if (show) {
+            chatContainer.appendChild(typingIndicator);
+            typingIndicator.classList.add('active');
+        } else {
+            typingIndicator.classList.remove('active');
+        }
+    }
+
+    function scrollToBottom() {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+</script>
+
+</body>
+</html>
